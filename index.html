@@ -694,29 +694,10 @@ select.form-inp { cursor: pointer; }
 <!-- ─── PRODUCT GRID ─── -->
 <div class="container-xl pb-5" style="position:relative;z-index:1;" id="catalogueMain">
 
-  <!-- SOFTWARE GROUP -->
-  <div class="section-label" id="grp-software">💻 Software Solutions <span>6 Products</span></div>
+  <!-- Unified PRODUCT GRID: all product cards render into one grid (groups removed) -->
   <div class="row g-3 mb-5" id="product-grid">
-
-    <!-- PRODUCT CARDS (JS rendered for dynamic admin control) -->
-
+    <!-- All product cards will be rendered here (combined categories) -->
   </div><!-- end row -->
-
-  <!-- HARDWARE GROUP -->
-  <div class="section-label" id="grp-hardware">🔧 Hardware Devices <span>4 Products</span></div>
-  <div class="row g-3 mb-5" id="hardware-grid"></div>
-
-  <!-- IOT GROUP -->
-  <div class="section-label" id="grp-iot">📡 IoT Solutions <span>2 Products</span></div>
-  <div class="row g-3 mb-5" id="iot-grid"></div>
-
-  <!-- SERVICE GROUP -->
-  <div class="section-label" id="grp-service">🤝 Services <span>3 Products</span></div>
-  <div class="row g-3 mb-5" id="service-grid"></div>
-
-  <!-- BUNDLE GROUP -->
-  <div class="section-label" id="grp-bundle">📦 Bundles & Offers <span>2 Products</span></div>
-  <div class="row g-3 mb-5" id="bundle-grid"></div>
 
   <!-- INTEGRATION BADGES -->
   <div class="mt-2 mb-3">
@@ -1041,11 +1022,17 @@ window.addEventListener('DOMContentLoaded', function() {
   if (!overlay || !v) { if (overlay) hideIntroLoader(); return; }
   v.muted = true;
   v.defaultMuted = true;
-  v.playbackRate = 2.0;
+  v.playbackRate = 3.0;
   var p = v.play();
   if (p && typeof p.catch === 'function') p.catch(function() {});
   v.addEventListener('ended', hideIntroLoader, { once: true });
   v.addEventListener('error', hideIntroLoader, { once: true });
+  // Close intro loader immediately when Escape is pressed
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' || e.key === 'Esc') {
+      if (document.getElementById('introLoader')) hideIntroLoader();
+    }
+  });
   setTimeout(function() {
     if (document.getElementById('introLoader')) hideIntroLoader();
   }, 8000);
@@ -1244,7 +1231,7 @@ let inquiries = [];
 
 /* ─── RENDER ALL PRODUCTS ─── */
 function renderAllProducts() {
-  const grids = { software:'product-grid', hardware:'hardware-grid', iot:'iot-grid', service:'service-grid', bundle:'bundle-grid' };
+  const grids = { software:'product-grid', hardware:'product-grid', iot:'product-grid', service:'product-grid', bundle:'product-grid' };
   Object.values(grids).forEach(gid => document.getElementById(gid).innerHTML = '');
 
   PRODUCTS.forEach((p, idx) => {

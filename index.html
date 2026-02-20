@@ -155,6 +155,7 @@ body::before {
 .card-header-img {
   height: 155px; display: flex; align-items: center; justify-content: center;
   position: relative; overflow: hidden; cursor: pointer;
+  touch-action: pan-y;
 }
 .card-media-track { position: absolute; inset: 0; }
 .card-media-slide {
@@ -294,6 +295,7 @@ body::before {
   height: 280px; background: var(--dark3);
   display: flex; align-items: center; justify-content: center;
   position: relative; overflow: hidden;
+  touch-action: pan-y;
 }
 .gallery-main img { width: 100%; height: 100%; object-fit: contain; }
 .gallery-main video { width: 100%; height: 100%; object-fit: contain; background: #000; }
@@ -675,8 +677,6 @@ select.form-inp { cursor: pointer; }
 <!-- ─── HERO ─── -->
 <div class="hero-section" style="position:relative;z-index:1;">
   <div class="container-xl">
-    <img src="Assets/logo.png" alt="Acculekhaa" class="hero-logo">
-    <div class="hero-badge">🛍️ Product Catalogue 2025</div>
     <h1>Acculekhaa <span class="accent">Solutions</span> Store</h1>
     <p class="hero-lead">AI-powered Campus Management · Explore, Compare & Order Online</p>
 
@@ -1263,6 +1263,9 @@ let cart = [];
 let currentProduct = null;
 let currentDetailMedia = [];
 let currentDetailMediaIndex = 0;
+let cardSwipeStartX = 0;
+let detailSwipeStartX = 0;
+let swipeSuppressUntil = {};
 let isAdmin = false;
 let currentUser = null;
 let loginMode = 'user';
@@ -1298,7 +1301,7 @@ function renderAllProducts() {
     col.dataset.search = (p.name + ' ' + p.desc + ' ' + p.tags.join(' ')).toLowerCase();
     col.innerHTML = `
       <div class="product-card h-100 ${!p.enabled ? 'opacity-50' : ''}">
-        <div class="card-header-img" onclick="openDetail('${p.id}')">
+        <div class="card-header-img" data-pid="${p.id}" onclick="openDetail('${p.id}')" ontouchstart="cardTouchStart(event,'${p.id}')" ontouchend="cardTouchEnd(event,'${p.id}')">
           <div class="card-media-track" id="card-track-${p.id}" data-index="0">${mediaSlides}</div>
           <div class="card-bg-glow" style="background:linear-gradient(135deg,#1a7a3c,#1a5276)"></div>
           ${media.items.length > 1 ? '<button class="card-media-nav prev" type="button" onclick="event.stopPropagation();shiftCardMedia(\'' + p.id + '\',-1)">‹</button><button class="card-media-nav next" type="button" onclick="event.stopPropagation();shiftCardMedia(\'' + p.id + '\',1)">›</button>' : ''}
@@ -1357,6 +1360,21 @@ function shiftCardMedia(id, delta) {
   const track = document.getElementById('card-track-' + id);
   const current = parseInt(track?.dataset.index || '0', 10) || 0;
   setCardMedia(id, current + delta);
+}
+
+function cardTouchStart(e, id) {
+  const t = e.touches && e.touches[0];
+  if (!t) return;
+  cardSwipeStartX = t.clientX;
+}
+
+function cardTouchEnd(e, id) {
+  const t = e.changedTouches && e.changedTouches[0];
+  if (!t) return;
+  const dx = t.clientX - cardSwipeStartX;
+  if (Math.abs(dx) < 35) return;
+  shiftCardMedia(id, dx < 0 ? 1 : -1);
+  swipeSuppressUntil[id] = Date.now() + 450;
 }
 
 function updateGroupCounts() {
@@ -1470,6 +1488,7 @@ function toggleCart() {
 
 /* ─── PRODUCT DETAIL ─── */
 function openDetail(id) {
+  if (swipeSuppressUntil[id] && Date.now() < swipeSuppressUntil[id]) return;
   const p = getProduct(id);
   if (!p) return;
   currentProduct = id;
@@ -1551,6 +1570,20 @@ function renderDetailMedia(index) {
     el.classList.toggle('active', idx === safe);
   });
   currentDetailMediaIndex = safe;
+}
+
+function detailTouchStart(e) {
+  const t = e.touches && e.touches[0];
+  if (!t) return;
+  detailSwipeStartX = t.clientX;
+}
+
+function detailTouchEnd(e) {
+  const t = e.changedTouches && e.changedTouches[0];
+  if (!t || !currentDetailMedia.length) return;
+  const dx = t.clientX - detailSwipeStartX;
+  if (Math.abs(dx) < 35) return;
+  renderDetailMedia(currentDetailMediaIndex + (dx < 0 ? 1 : -1));
 }
 
 function closeDetail() { document.getElementById('detailModal').classList.remove('open'); }
@@ -1884,6 +1917,8 @@ document.getElementById('loginModal').addEventListener('click', function(e) {
 document.getElementById('adminPanel').addEventListener('click', function(e) {
   if (e.target === this) closeAdminPanel();
 });
+document.getElementById('galleryMain').addEventListener('touchstart', detailTouchStart, { passive: true });
+document.getElementById('galleryMain').addEventListener('touchend', detailTouchEnd, { passive: true });
 
 /* ─── INIT ─── */
 renderAllProducts();

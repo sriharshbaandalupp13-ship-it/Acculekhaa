@@ -1390,14 +1390,8 @@ function updateGroupCounts() {
 function filterCat(cat, btn) {
   document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  const cats = ['software','hardware','iot','service','bundle'];
-  cats.forEach(c => {
-    const grpEl = document.getElementById(`grp-${c}`);
-    const gridEl = document.getElementById(`${c === 'software' ? 'product' : c}-grid`);
-    const show = cat === 'all' || cat === c;
-    if (grpEl) grpEl.style.display = show ? '' : 'none';
-    if (gridEl) gridEl.style.display = show ? '' : 'none';
-  });
+  const mainGrid = document.getElementById('product-grid');
+  if (mainGrid) mainGrid.style.display = '';
   document.querySelectorAll('.product-card-wrap').forEach(card => {
     if (cat === 'all' || card.dataset.category === cat) card.style.display = '';
     else card.style.display = 'none';

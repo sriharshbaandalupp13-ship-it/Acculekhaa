@@ -1300,8 +1300,8 @@ function renderAllProducts() {
     col.dataset.category = p.cat;
     col.dataset.search = (p.name + ' ' + p.desc + ' ' + p.tags.join(' ')).toLowerCase();
     col.innerHTML = `
-      <div class="product-card h-100 ${!p.enabled ? 'opacity-50' : ''}">
-        <div class="card-header-img" data-pid="${p.id}" onclick="openDetail('${p.id}')" ontouchstart="cardTouchStart(event,'${p.id}')" ontouchend="cardTouchEnd(event,'${p.id}')">
+      <div class="product-card h-100 ${!p.enabled ? 'opacity-50' : ''}" onclick="openDetail('${p.id}')">
+        <div class="card-header-img" data-pid="${p.id}" ontouchstart="cardTouchStart(event,'${p.id}')" ontouchend="cardTouchEnd(event,'${p.id}')">
           <div class="card-media-track" id="card-track-${p.id}" data-index="0">${mediaSlides}</div>
           <div class="card-bg-glow" style="background:linear-gradient(135deg,#1a7a3c,#1a5276)"></div>
           ${media.items.length > 1 ? '<button class="card-media-nav prev" type="button" onclick="event.stopPropagation();shiftCardMedia(\'' + p.id + '\',-1)">‹</button><button class="card-media-nav next" type="button" onclick="event.stopPropagation();shiftCardMedia(\'' + p.id + '\',1)">›</button>' : ''}
@@ -1323,14 +1323,14 @@ function renderAllProducts() {
             </div>
             <div class="gst-note">+ ${p.gstRate}% GST</div>
             <div class="d-flex align-items-center gap-2 flex-wrap">
-              <button class="btn-learn" onclick="openDetail('${p.id}')">View →</button>
-              <button class="btn-inquiry" onclick="openInquiry('${p.id}')">💬</button>
+              <button class="btn-learn" onclick="event.stopPropagation();openDetail('${p.id}')">View →</button>
+              <button class="btn-inquiry" onclick="event.stopPropagation();openInquiry('${p.id}')">💬</button>
               ${p.inStock && p.enabled
-                ? `<button class="btn-add-card" id="addbtn-${p.id}" onclick="cardAdd(this,'${p.id}')">+ Add</button>
+                ? `<button class="btn-add-card" id="addbtn-${p.id}" onclick="event.stopPropagation();cardAdd(this,'${p.id}')">+ Add</button>
                    <div class="card-stepper" id="stepper-${p.id}">
-                     <button class="cs-btn" onclick="cardDec(this,'${p.id}')">−</button>
+                     <button class="cs-btn" onclick="event.stopPropagation();cardDec(this,'${p.id}')">−</button>
                      <span class="cs-num">1</span>
-                     <button class="cs-btn" onclick="cardInc(this,'${p.id}')">+</button>
+                     <button class="cs-btn" onclick="event.stopPropagation();cardInc(this,'${p.id}')">+</button>
                    </div>`
                 : `<button class="btn-add-card" disabled>Unavailable</button>`
               }

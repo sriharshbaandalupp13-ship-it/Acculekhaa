@@ -156,11 +156,19 @@ body::before {
   height: 155px; display: flex; align-items: center; justify-content: center;
   position: relative; overflow: hidden; cursor: pointer;
 }
-.card-header-img img {
-  width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0;
-  opacity: 0; transition: opacity .3s;
+.card-media-track { position: absolute; inset: 0; }
+.card-media-slide {
+  position: absolute; inset: 0;
+  opacity: 0; transition: opacity .25s ease;
 }
-.card-header-img img.loaded { opacity: 1; }
+.card-media-slide.active { opacity: 1; }
+.card-media-slide img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.card-video-thumb {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, rgba(10,50,35,.8), rgba(15,25,45,.8));
+  color: #fff; font-size: 2.2rem;
+}
 .card-icon { font-size: 3.2rem; position: relative; z-index: 1; }
 .card-bg-glow { position: absolute; inset: 0; opacity: .18; }
 .badge-cat {
@@ -191,6 +199,17 @@ body::before {
 .img-dots { position: absolute; bottom: 8px; right: 10px; display: flex; gap: 4px; z-index: 3; }
 .img-dot { width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,.4); cursor: pointer; transition: background .2s; }
 .img-dot.active { background: var(--green-light); }
+.img-dot.video-dot { border: 1px solid rgba(255,255,255,.7); }
+.card-media-nav {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  width: 24px; height: 24px; border: 1px solid rgba(255,255,255,.25);
+  border-radius: 8px; background: rgba(0,0,0,.35); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .85rem; cursor: pointer; z-index: 3;
+}
+.card-media-nav.prev { left: 8px; }
+.card-media-nav.next { right: 8px; }
+.card-media-nav:hover { background: rgba(0,0,0,.6); border-color: rgba(255,255,255,.5); }
 
 .card-body-inner { padding: 16px 18px 18px; }
 .card-title { font-family: 'Syne', sans-serif; font-size: .97rem; font-weight: 700; margin-bottom: 6px; line-height: 1.35; }
@@ -277,6 +296,7 @@ body::before {
   position: relative; overflow: hidden;
 }
 .gallery-main img { width: 100%; height: 100%; object-fit: contain; }
+.gallery-main video { width: 100%; height: 100%; object-fit: contain; background: #000; }
 .gallery-main .gallery-icon { font-size: 5rem; }
 .gallery-thumbs {
   display: flex; gap: 8px; padding: 10px 20px;
@@ -514,12 +534,13 @@ select.form-inp { cursor: pointer; }
 /* ─── WHATSAPP FLOAT ─── */
 .wa-float {
   position: fixed; bottom: 24px; right: 24px; z-index: 1000;
-  width: 54px; height: 54px; background: #25D366;
+  width: 56px; height: 56px; background: #25D366;
   border-radius: 50%; display: flex; align-items: center; justify-content: center;
-  font-size: 1.5rem; text-decoration: none; box-shadow: 0 4px 20px rgba(37,211,102,.4);
-  transition: transform .2s, box-shadow .2s;
+  text-decoration: none; box-shadow: 0 6px 22px rgba(37,211,102,.45);
+  transition: transform .2s, box-shadow .2s, filter .2s;
+  color: #fff; font-size: 1.9rem; border: 2px solid #fff;
 }
-.wa-float:hover { transform: scale(1.1); box-shadow: 0 6px 28px rgba(37,211,102,.6); }
+.wa-float:hover { transform: scale(1.08); box-shadow: 0 10px 30px rgba(37,211,102,.65); filter: saturate(1.05); }
 
 /* ─── SECTION LABELS ─── */
 .section-label {
@@ -995,7 +1016,9 @@ select.form-inp { cursor: pointer; }
 </div>
 
 <!-- WhatsApp Float -->
-<a class="wa-float" href="https://wa.me/919032406513" target="_blank" title="Chat on WhatsApp">💬</a>
+<a class="wa-float" href="https://api.whatsapp.com/send?phone=919032406513&text=Hi%20Acculekhaa%20Team%21" target="_blank" rel="noopener" title="Chat on WhatsApp" aria-label="Chat on WhatsApp">
+  <i class="bi bi-whatsapp"></i>
+</a>
 
 <!-- Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -1217,9 +1240,29 @@ let PRODUCTS = [
   }
 ];
 
+const DEMO_MEDIA = {
+  images: [
+    'https://picsum.photos/seed/accu-1/1000/700',
+    'https://picsum.photos/seed/accu-2/1000/700',
+    'https://picsum.photos/seed/accu-3/1000/700',
+    'https://picsum.photos/seed/accu-4/1000/700'
+  ],
+  video: 'https://www.w3schools.com/html/mov_bbb.mp4'
+};
+
+function getProductMedia(product) {
+  const images = (product.images && product.images.length ? product.images : DEMO_MEDIA.images).slice(0, 4);
+  const videoUrl = product.videoUrl || DEMO_MEDIA.video;
+  const items = images.map(src => ({ type: 'image', src }));
+  if (videoUrl) items.push({ type: 'video', src: videoUrl });
+  return { images, videoUrl, items };
+}
+
 /* ─── STATE ─── */
 let cart = [];
 let currentProduct = null;
+let currentDetailMedia = [];
+let currentDetailMediaIndex = 0;
 let isAdmin = false;
 let currentUser = null;
 let loginMode = 'user';
@@ -1239,6 +1282,15 @@ function renderAllProducts() {
     const gid = grids[p.cat] || 'product-grid';
     const grid = document.getElementById(gid);
     if (!grid) return;
+    const media = getProductMedia(p);
+    const mediaSlides = media.items.map((m, midx) =>
+      m.type === 'video'
+        ? `<div class="card-media-slide ${midx === 0 ? 'active' : ''}"><div class="card-video-thumb"><i class="bi bi-play-fill"></i></div></div>`
+        : `<div class="card-media-slide ${midx === 0 ? 'active' : ''}"><img src="${m.src}" alt="${p.name} media ${midx + 1}" loading="lazy"></div>`
+    ).join('');
+    const mediaDots = media.items.map((m, midx) =>
+      `<button type="button" class="img-dot ${midx === 0 ? 'active' : ''} ${m.type === 'video' ? 'video-dot' : ''}" onclick="event.stopPropagation();setCardMedia('${p.id}',${midx})"></button>`
+    ).join('');
     const discPct = p.origPrice > 0 ? Math.round((1 - p.price / p.origPrice) * 100) : 0;
     const col = document.createElement('div');
     col.className = 'col-12 col-sm-6 col-lg-4 product-card-wrap';
@@ -1247,8 +1299,10 @@ function renderAllProducts() {
     col.innerHTML = `
       <div class="product-card h-100 ${!p.enabled ? 'opacity-50' : ''}">
         <div class="card-header-img" onclick="openDetail('${p.id}')">
+          <div class="card-media-track" id="card-track-${p.id}" data-index="0">${mediaSlides}</div>
           <div class="card-bg-glow" style="background:linear-gradient(135deg,#1a7a3c,#1a5276)"></div>
-          <div class="card-icon">${p.icon}</div>
+          ${media.items.length > 1 ? '<button class="card-media-nav prev" type="button" onclick="event.stopPropagation();shiftCardMedia(\'' + p.id + '\',-1)">‹</button><button class="card-media-nav next" type="button" onclick="event.stopPropagation();shiftCardMedia(\'' + p.id + '\',1)">›</button>' : ''}
+          <div class="img-dots" id="card-dots-${p.id}">${mediaDots}</div>
           <span class="badge-cat">${p.cat.charAt(0).toUpperCase()+p.cat.slice(1)}</span>
           ${p.isNew && p.inStock ? '<span class="badge-new">NEW</span>' : ''}
           ${!p.inStock ? '<span class="badge-outofstock">Out of Stock</span>' : ''}
@@ -1285,6 +1339,24 @@ function renderAllProducts() {
   });
 
   updateGroupCounts();
+}
+
+function setCardMedia(id, index) {
+  const track = document.getElementById('card-track-' + id);
+  const dots = document.querySelectorAll('#card-dots-' + id + ' .img-dot');
+  if (!track) return;
+  const slides = track.querySelectorAll('.card-media-slide');
+  if (!slides.length) return;
+  const safe = ((index % slides.length) + slides.length) % slides.length;
+  slides.forEach((s, i) => s.classList.toggle('active', i === safe));
+  dots.forEach((d, i) => d.classList.toggle('active', i === safe));
+  track.dataset.index = String(safe);
+}
+
+function shiftCardMedia(id, delta) {
+  const track = document.getElementById('card-track-' + id);
+  const current = parseInt(track?.dataset.index || '0', 10) || 0;
+  setCardMedia(id, current + delta);
 }
 
 function updateGroupCounts() {
@@ -1401,7 +1473,6 @@ function openDetail(id) {
   const p = getProduct(id);
   if (!p) return;
   currentProduct = id;
-  document.getElementById('galleryIcon').textContent = p.icon;
   document.getElementById('detBadge').textContent = p.cat.charAt(0).toUpperCase() + p.cat.slice(1);
   document.getElementById('detTitle').textContent = p.name;
   document.getElementById('detDesc').textContent = p.desc;
@@ -1440,23 +1511,46 @@ function openDetail(id) {
   // Features
   document.getElementById('detFeatures').innerHTML = p.features.map(f => `<li>${f}</li>`).join('');
 
-  // Video
-  const videoWrap = document.getElementById('detVideoWrap');
-  if (p.videoUrl) {
-    videoWrap.classList.remove('hidden');
-    const isYT = p.videoUrl.includes('youtube') || p.videoUrl.includes('youtu.be');
-    document.getElementById('detVideo').innerHTML = isYT
-      ? `<iframe src="${p.videoUrl}" allowfullscreen></iframe>`
-      : `<video controls><source src="${p.videoUrl}"></video>`;
-  } else {
-    videoWrap.classList.add('hidden');
-  }
+  // Media gallery (4 images + video demo/fallback)
+  const media = getProductMedia(p);
+  currentDetailMedia = media.items;
+  currentDetailMediaIndex = 0;
 
   // Gallery thumbs
   const thumbsEl = document.getElementById('galleryThumbs');
-  thumbsEl.innerHTML = `<div class="g-thumb active">${p.icon}</div>`;
+  thumbsEl.innerHTML = media.items.map((m, idx) => {
+    if (m.type === 'video') {
+      return `<button class="g-thumb ${idx === 0 ? 'active' : ''}" type="button" onclick="renderDetailMedia(${idx})"><i class="bi bi-play-fill"></i></button>`;
+    }
+    return `<button class="g-thumb ${idx === 0 ? 'active' : ''}" type="button" onclick="renderDetailMedia(${idx})"><img src="${m.src}" alt="${p.name} thumb ${idx + 1}" loading="lazy"></button>`;
+  }).join('');
+  renderDetailMedia(0);
+
+  // Keep separate demo section hidden when using media gallery
+  document.getElementById('detVideoWrap').classList.add('hidden');
 
   document.getElementById('detailModal').classList.add('open');
+}
+
+function renderDetailMedia(index) {
+  const main = document.getElementById('galleryMain');
+  if (!main) return;
+  if (!currentDetailMedia.length) {
+    const p = getProduct(currentProduct);
+    main.innerHTML = `<div class="gallery-icon">${p ? p.icon : '📦'}</div>`;
+    return;
+  }
+  const safe = ((index % currentDetailMedia.length) + currentDetailMedia.length) % currentDetailMedia.length;
+  const media = currentDetailMedia[safe];
+  if (media.type === 'video') {
+    main.innerHTML = `<video controls playsinline preload="metadata" src="${media.src}"></video>`;
+  } else {
+    main.innerHTML = `<img src="${media.src}" alt="Product media ${safe + 1}">`;
+  }
+  document.querySelectorAll('#galleryThumbs .g-thumb').forEach((el, idx) => {
+    el.classList.toggle('active', idx === safe);
+  });
+  currentDetailMediaIndex = safe;
 }
 
 function closeDetail() { document.getElementById('detailModal').classList.remove('open'); }

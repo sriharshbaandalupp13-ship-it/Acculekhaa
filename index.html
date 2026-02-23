@@ -659,10 +659,10 @@ select.form-inp { cursor: pointer; }
     </button>
     <div class="collapse navbar-collapse" id="navMain">
       <ul class="navbar-nav me-auto gap-1 ms-3">
-        <li class="nav-item"><a class="nav-link" href="https://www.acculekhaa.com">Home</a></li>
-        <li class="nav-item"><a class="nav-link" href="https://www.acculekhaa.com/#about">About</a></li>
+        <li class="nav-item"><a class="nav-link" href="http://acculekhaa.com/index.php">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="https://acculekhaa.com/about-us.php">About</a></li>
         <li class="nav-item"><a class="nav-link active text-green" href="#">Catalogue</a></li>
-        <li class="nav-item"><a class="nav-link" href="https://www.acculekhaa.com/#contact">Contact</a></li>
+        <li class="nav-item"><a class="nav-link" href="https://acculekhaa.com/contact.php">Contact</a></li>
       </ul>
       <div class="d-flex align-items-center gap-2 mt-2 mt-lg-0">
         <button class="btn-cart" onclick="toggleCart()">
@@ -1050,6 +1050,10 @@ window.addEventListener('DOMContentLoaded', function() {
   if (p && typeof p.catch === 'function') p.catch(function() {});
   v.addEventListener('ended', hideIntroLoader, { once: true });
   v.addEventListener('error', hideIntroLoader, { once: true });
+  // Skip intro from any interaction on the overlay (mouse/touch/pen)
+  overlay.addEventListener('pointerdown', hideIntroLoader, { once: true });
+  overlay.addEventListener('click', hideIntroLoader, { once: true });
+  overlay.addEventListener('touchstart', hideIntroLoader, { once: true, passive: true });
   // Close intro loader immediately when Escape is pressed
   document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape' || e.key === 'Esc') {

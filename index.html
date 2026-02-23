@@ -167,8 +167,19 @@ body::before {
 .card-video-thumb {
   width: 100%; height: 100%;
   display: flex; align-items: center; justify-content: center;
+  position: relative; overflow: hidden;
   background: linear-gradient(135deg, rgba(10,50,35,.8), rgba(15,25,45,.8));
   color: #fff; font-size: 2.2rem;
+}
+.card-video-thumb video {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+}
+.card-video-thumb i {
+  position: absolute; left: 8px; bottom: 8px;
+  width: 28px; height: 28px; border-radius: 50%;
+  background: rgba(0,0,0,.45);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1rem; pointer-events: none;
 }
 .card-icon { font-size: 3.2rem; position: relative; z-index: 1; }
 .card-bg-glow { position: absolute; inset: 0; opacity: .18; }
@@ -1251,7 +1262,7 @@ const DEMO_MEDIA = {
     'https://picsum.photos/seed/accu-3/1000/700',
     'https://picsum.photos/seed/accu-4/1000/700'
   ],
-  video: 'https://www.w3schools.com/html/mov_bbb.mp4'
+  video: 'Assets/Video Project 2.mp4'
 };
 
 function getProductMedia(product) {
@@ -1270,6 +1281,8 @@ let currentDetailMediaIndex = 0;
 let cardSwipeStartX = 0;
 let detailSwipeStartX = 0;
 let swipeSuppressUntil = {};
+let cardAutoTimers = {};
+let cardAutoPauseUntil = {};
 let isAdmin = false;
 let currentUser = null;
 let loginMode = 'user';
@@ -1281,6 +1294,9 @@ let inquiries = [];
 
 /* ─── RENDER ALL PRODUCTS ─── */
 function renderAllProducts() {
+  Object.values(cardAutoTimers).forEach(clearInterval);
+  cardAutoTimers = {};
+
   const grids = { software:'product-grid', hardware:'product-grid', iot:'product-grid', service:'product-grid', bundle:'product-grid' };
   Object.values(grids).forEach(gid => document.getElementById(gid).innerHTML = '');
 
@@ -1292,11 +1308,11 @@ function renderAllProducts() {
     const media = getProductMedia(p);
     const mediaSlides = media.items.map((m, midx) =>
       m.type === 'video'
-        ? `<div class="card-media-slide ${midx === 0 ? 'active' : ''}"><div class="card-video-thumb"><i class="bi bi-play-fill"></i></div></div>`
+        ? `<div class="card-media-slide ${midx === 0 ? 'active' : ''}"><div class="card-video-thumb" onclick="event.stopPropagation();playCardPreviewVideo(this.querySelector('video'),'${p.id}')"><video src="${m.src}" muted playsinline loop preload="metadata"></video><i class="bi bi-play-fill"></i></div></div>`
         : `<div class="card-media-slide ${midx === 0 ? 'active' : ''}"><img src="${m.src}" alt="${p.name} media ${midx + 1}" loading="lazy"></div>`
     ).join('');
     const mediaDots = media.items.map((m, midx) =>
-      `<button type="button" class="img-dot ${midx === 0 ? 'active' : ''} ${m.type === 'video' ? 'video-dot' : ''}" onclick="event.stopPropagation();setCardMedia('${p.id}',${midx})"></button>`
+      `<button type="button" class="img-dot ${midx === 0 ? 'active' : ''} ${m.type === 'video' ? 'video-dot' : ''}" onclick="event.stopPropagation();setCardMedia('${p.id}',${midx},true)"></button>`
     ).join('');
     const discPct = p.origPrice > 0 ? Math.round((1 - p.price / p.origPrice) * 100) : 0;
     const col = document.createElement('div');
@@ -1308,7 +1324,7 @@ function renderAllProducts() {
         <div class="card-header-img" data-pid="${p.id}" ontouchstart="cardTouchStart(event,'${p.id}')" ontouchend="cardTouchEnd(event,'${p.id}')">
           <div class="card-media-track" id="card-track-${p.id}" data-index="0">${mediaSlides}</div>
           <div class="card-bg-glow" style="background:linear-gradient(135deg,#1a7a3c,#1a5276)"></div>
-          ${media.items.length > 1 ? '<button class="card-media-nav prev" type="button" onclick="event.stopPropagation();shiftCardMedia(\'' + p.id + '\',-1)">‹</button><button class="card-media-nav next" type="button" onclick="event.stopPropagation();shiftCardMedia(\'' + p.id + '\',1)">›</button>' : ''}
+          ${media.items.length > 1 ? '<button class="card-media-nav prev" type="button" onclick="event.stopPropagation();shiftCardMedia(\'' + p.id + '\',-1,true)">‹</button><button class="card-media-nav next" type="button" onclick="event.stopPropagation();shiftCardMedia(\'' + p.id + '\',1,true)">›</button>' : ''}
           <div class="img-dots" id="card-dots-${p.id}">${mediaDots}</div>
           <span class="badge-cat">${p.cat.charAt(0).toUpperCase()+p.cat.slice(1)}</span>
           ${p.isNew && p.inStock ? '<span class="badge-new">NEW</span>' : ''}
@@ -1343,27 +1359,59 @@ function renderAllProducts() {
         </div>
       </div>`;
     grid.appendChild(col);
+    setCardMedia(p.id, 0, false);
+    startCardAutoplay(p.id);
   });
 
   updateGroupCounts();
 }
 
-function setCardMedia(id, index) {
+function setCardMedia(id, index, userAction = false) {
   const track = document.getElementById('card-track-' + id);
   const dots = document.querySelectorAll('#card-dots-' + id + ' .img-dot');
   if (!track) return;
   const slides = track.querySelectorAll('.card-media-slide');
   if (!slides.length) return;
   const safe = ((index % slides.length) + slides.length) % slides.length;
-  slides.forEach((s, i) => s.classList.toggle('active', i === safe));
+  slides.forEach((s, i) => {
+    const active = i === safe;
+    s.classList.toggle('active', active);
+    const v = s.querySelector('video');
+    if (v) {
+      if (active) v.play().catch(() => {});
+      else v.pause();
+    }
+  });
   dots.forEach((d, i) => d.classList.toggle('active', i === safe));
   track.dataset.index = String(safe);
+  if (userAction) cardAutoPauseUntil[id] = Date.now() + 7000;
 }
 
-function shiftCardMedia(id, delta) {
+function shiftCardMedia(id, delta, userAction = false) {
   const track = document.getElementById('card-track-' + id);
   const current = parseInt(track?.dataset.index || '0', 10) || 0;
-  setCardMedia(id, current + delta);
+  setCardMedia(id, current + delta, userAction);
+}
+
+function startCardAutoplay(id) {
+  const track = document.getElementById('card-track-' + id);
+  if (!track) return;
+  const slides = track.querySelectorAll('.card-media-slide');
+  if (slides.length < 2) return;
+  if (cardAutoTimers[id]) clearInterval(cardAutoTimers[id]);
+  cardAutoTimers[id] = setInterval(() => {
+    if (Date.now() < (cardAutoPauseUntil[id] || 0)) return;
+    if (Date.now() < (swipeSuppressUntil[id] || 0)) return;
+    shiftCardMedia(id, 1, false);
+  }, 3500);
+}
+
+function playCardPreviewVideo(videoEl, id) {
+  if (!videoEl) return;
+  videoEl.muted = false;
+  videoEl.controls = true;
+  videoEl.play().catch(() => {});
+  cardAutoPauseUntil[id] = Date.now() + 7000;
 }
 
 function cardTouchStart(e, id) {
@@ -1377,7 +1425,7 @@ function cardTouchEnd(e, id) {
   if (!t) return;
   const dx = t.clientX - cardSwipeStartX;
   if (Math.abs(dx) < 35) return;
-  shiftCardMedia(id, dx < 0 ? 1 : -1);
+  shiftCardMedia(id, dx < 0 ? 1 : -1, true);
   swipeSuppressUntil[id] = Date.now() + 450;
 }
 

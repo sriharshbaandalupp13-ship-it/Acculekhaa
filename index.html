@@ -1283,6 +1283,8 @@ let detailSwipeStartX = 0;
 let swipeSuppressUntil = {};
 let cardAutoTimers = {};
 let cardAutoPauseUntil = {};
+let cardVisibilityObserver = null;
+let cardVisibilityMap = {};
 let isAdmin = false;
 let currentUser = null;
 let loginMode = 'user';
@@ -1294,8 +1296,11 @@ let inquiries = [];
 
 /* ─── RENDER ALL PRODUCTS ─── */
 function renderAllProducts() {
-  Object.values(cardAutoTimers).forEach(clearInterval);
+  Object.values(cardAutoTimers).forEach(clearTimeout);
   cardAutoTimers = {};
+  cardVisibilityMap = {};
+  if (cardVisibilityObserver) cardVisibilityObserver.disconnect();
+  cardVisibilityObserver = createCardVisibilityObserver();
 
   const grids = { software:'product-grid', hardware:'product-grid', iot:'product-grid', service:'product-grid', bundle:'product-grid' };
   Object.values(grids).forEach(gid => document.getElementById(gid).innerHTML = '');
@@ -1308,7 +1313,7 @@ function renderAllProducts() {
     const media = getProductMedia(p);
     const mediaSlides = media.items.map((m, midx) =>
       m.type === 'video'
-        ? `<div class="card-media-slide ${midx === 0 ? 'active' : ''}"><div class="card-video-thumb" onclick="event.stopPropagation();playCardPreviewVideo(this.querySelector('video'),'${p.id}')"><video src="${m.src}" muted playsinline loop preload="metadata"></video><i class="bi bi-play-fill"></i></div></div>`
+        ? `<div class="card-media-slide ${midx === 0 ? 'active' : ''}"><div class="card-video-thumb" onclick="event.stopPropagation();playCardPreviewVideo(this.querySelector('video'),'${p.id}')"><video src="${m.src}" muted playsinline preload="metadata"></video><i class="bi bi-play-fill"></i></div></div>`
         : `<div class="card-media-slide ${midx === 0 ? 'active' : ''}"><img src="${m.src}" alt="${p.name} media ${midx + 1}" loading="lazy"></div>`
     ).join('');
     const mediaDots = media.items.map((m, midx) =>
@@ -1360,7 +1365,8 @@ function renderAllProducts() {
       </div>`;
     grid.appendChild(col);
     setCardMedia(p.id, 0, false);
-    startCardAutoplay(p.id);
+    const cardHeader = col.querySelector('.card-header-img');
+    if (cardHeader && cardVisibilityObserver) cardVisibilityObserver.observe(cardHeader);
   });
 
   updateGroupCounts();
@@ -1378,13 +1384,18 @@ function setCardMedia(id, index, userAction = false) {
     s.classList.toggle('active', active);
     const v = s.querySelector('video');
     if (v) {
-      if (active) v.play().catch(() => {});
+      v.loop = false;
+      if (active) {
+        v.play().catch(() => {});
+        v.onended = () => handleCardVideoEnded(id, v);
+      }
       else v.pause();
     }
   });
   dots.forEach((d, i) => d.classList.toggle('active', i === safe));
   track.dataset.index = String(safe);
   if (userAction) cardAutoPauseUntil[id] = Date.now() + 7000;
+  startCardAutoplay(id);
 }
 
 function shiftCardMedia(id, delta, userAction = false) {
@@ -1398,12 +1409,52 @@ function startCardAutoplay(id) {
   if (!track) return;
   const slides = track.querySelectorAll('.card-media-slide');
   if (slides.length < 2) return;
-  if (cardAutoTimers[id]) clearInterval(cardAutoTimers[id]);
-  cardAutoTimers[id] = setInterval(() => {
-    if (Date.now() < (cardAutoPauseUntil[id] || 0)) return;
-    if (Date.now() < (swipeSuppressUntil[id] || 0)) return;
-    shiftCardMedia(id, 1, false);
-  }, 3500);
+  if (cardAutoTimers[id]) clearTimeout(cardAutoTimers[id]);
+  if (!cardVisibilityMap[id]) return;
+  if (Date.now() < (cardAutoPauseUntil[id] || 0) || Date.now() < (swipeSuppressUntil[id] || 0)) {
+    cardAutoTimers[id] = setTimeout(() => startCardAutoplay(id), 300);
+    return;
+  }
+  const current = parseInt(track.dataset.index || '0', 10) || 0;
+  const activeSlide = slides[current];
+  const activeVideo = activeSlide ? activeSlide.querySelector('video') : null;
+  if (activeVideo) {
+    activeVideo.play().catch(() => {});
+    return;
+  }
+  cardAutoTimers[id] = setTimeout(() => shiftCardMedia(id, 1, false), 5000);
+}
+
+function handleCardVideoEnded(id, videoEl) {
+  if (!cardVisibilityMap[id]) return;
+  if (Date.now() < (cardAutoPauseUntil[id] || 0) || Date.now() < (swipeSuppressUntil[id] || 0)) {
+    startCardAutoplay(id);
+    return;
+  }
+  const track = document.getElementById('card-track-' + id);
+  if (!track) return;
+  const activeSlide = track.querySelector('.card-media-slide.active');
+  if (!activeSlide || !videoEl || !activeSlide.contains(videoEl)) return;
+  shiftCardMedia(id, 1, false);
+}
+
+function createCardVisibilityObserver() {
+  return new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      const id = entry.target.dataset.pid;
+      if (!id) return;
+      const visible = entry.isIntersecting && entry.intersectionRatio >= 0.35;
+      cardVisibilityMap[id] = visible;
+      if (visible) {
+        startCardAutoplay(id);
+      } else {
+        if (cardAutoTimers[id]) clearTimeout(cardAutoTimers[id]);
+        const track = document.getElementById('card-track-' + id);
+        const activeVideo = track?.querySelector('.card-media-slide.active video');
+        if (activeVideo) activeVideo.pause();
+      }
+    });
+  }, { threshold: [0, 0.35, 0.6] });
 }
 
 function playCardPreviewVideo(videoEl, id) {
@@ -1412,6 +1463,7 @@ function playCardPreviewVideo(videoEl, id) {
   videoEl.controls = true;
   videoEl.play().catch(() => {});
   cardAutoPauseUntil[id] = Date.now() + 7000;
+  startCardAutoplay(id);
 }
 
 function cardTouchStart(e, id) {
